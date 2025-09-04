@@ -1,0 +1,1561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Traveler</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #0d0d1a;
+            color: #ffffff;
+            font-family: 'Orbitron', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            cursor: pointer;
+        }
+
+        #game-container {
+            position: relative;
+            border: 4px solid #fff;
+            box-shadow: 0 0 20px #a4f, 0 0 40px #a4f inset;
+            border-radius: 12px;
+            overflow: hidden;
+            width: 800px;
+            height: 600px;
+            touch-action: none; /* Prevents default touch actions like zoom */
+        }
+
+        canvas {
+            background-color: #00000a;
+            display: block;
+        }
+
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 15px;
+            box-sizing: border-box;
+            pointer-events: none;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .ui-panel {
+            font-size: 1.2em;
+            color: #fff;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 5px 15px;
+            border-radius: 8px;
+            margin: 5px;
+        }
+
+        #light-years-to-go, #score-display {
+            font-size: 1.5em;
+            color: #0ff;
+        }
+        
+        #debris-count {
+            font-size: 1.5em;
+            color: #ffcc00;
+        }
+        
+        #shields-count {
+            font-size: 1.5em;
+            color: #88ff88;
+        }
+        
+        #combo-display {
+            font-size: 2em;
+            color: #ff33ff;
+            text-shadow: 0 0 10px #ff33ff;
+            transition: transform 0.2s ease-out;
+        }
+        
+        .combo-active {
+            animation: combo-pulse 0.5s infinite alternate;
+        }
+
+        @keyframes combo-pulse {
+            from { transform: scale(1); }
+            to { transform: scale(1.1); }
+        }
+
+        #start-screen, #game-over, #congratulations, #play-options-modal, #level-select-modal, #shop-modal, #missions-modal, #achievements-modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            padding: 40px;
+            border-radius: 15px;
+            border: 2px solid #fff;
+            box-shadow: 0 0 15px #0ff;
+            z-index: 10;
+        }
+        
+        #play-options-modal, #level-select-modal, #shop-modal, #missions-modal, #achievements-modal {
+            display: none;
+            max-width: 600px;
+            padding: 50px;
+        }
+        
+        #level-select-list, #shop-items, #missions-list, #achievements-list {
+            list-style: none;
+            padding: 0;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .shop-section {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #333;
+            border-radius: 10px;
+            background: #1a1a2e;
+        }
+        
+        .shop-section h3 {
+            color: #0ff;
+        }
+        
+        #level-select-list li, #shop-items li, #missions-list li, #achievements-list li {
+            background: linear-gradient(145deg, #2a2a44, #1a1a2e);
+            border-radius: 10px;
+            padding: 15px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+            width: 150px;
+            text-align: center;
+            position: relative;
+        }
+        
+        #shop-items li {
+             height: 140px;
+             justify-content: center;
+             align-items: center;
+             display: flex;
+             flex-direction: column;
+        }
+
+        #level-select-list li:hover, #shop-items li:not(.locked):hover, #missions-list li:not(.locked):hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(164, 68, 255, 0.4);
+        }
+        
+        #level-select-list li.locked, #shop-items li.locked, #missions-list li.locked {
+            filter: grayscale(80%);
+            cursor: not-allowed;
+        }
+        
+        .locked-label {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.7);
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 1.2em;
+            color: #ff3333;
+        }
+        
+        .item-cost {
+            font-size: 1.1em;
+            color: #ffcc00;
+        }
+        
+        .achievement-completed {
+            background: #3a4a3a !important;
+            border: 2px solid limegreen !important;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            color: #f7f7f7;
+            margin-bottom: 10px;
+        }
+        h2 {
+            font-size: 1.8em;
+            color: #0ff;
+            margin-top: 0;
+        }
+        p {
+            font-size: 1.1em;
+            line-height: 1.5;
+        }
+
+        button {
+            background: linear-gradient(145deg, #a4f, #0ff);
+            color: #fff;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.2em;
+            font-weight: bold;
+            font-family: 'Orbitron', sans-serif;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 15px rgba(0, 255, 255, 0.4);
+            margin: 5px;
+        }
+
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0, 255, 255, 0.6);
+        }
+
+        button:active {
+            transform: translateY(0);
+            box-shadow: 2px 2px 10px rgba(0, 255, 255, 0.3);
+        }
+        
+        #planet-info-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.5s, visibility 0.5s;
+        }
+
+        #planet-info-modal.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            border: 2px solid #0ff;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 700px;
+            text-align: center;
+            box-shadow: 0 0 25px #0ff;
+            transform: scale(0.9);
+            transition: transform 0.5s;
+        }
+        
+        #planet-info-modal.visible .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-content h3 {
+            font-size: 2.2em;
+            color: #a4f;
+            text-shadow: 2px 2px 4px #000;
+        }
+        .modal-content p {
+            font-size: 1.1em;
+            color: #ccc;
+            margin: 15px 0;
+            white-space: pre-wrap;
+        }
+        .modal-content h4 {
+            font-size: 1.4em;
+            color: #0ff;
+            margin-top: 20px;
+        }
+        .advantage, .disadvantage {
+            margin-top: 10px;
+        }
+        .advantage ul, .disadvantage ul {
+            list-style: none;
+            padding: 0;
+        }
+        .advantage li::before { content: '✅ '; color: limegreen; }
+        .disadvantage li::before { content: '❌ '; color: crimson; }
+        
+        .modal-buttons {
+            margin-top: 30px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+        
+        #game-controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        #thrustButton {
+            background: linear-gradient(145deg, #ff6b6b, #e63946);
+        }
+        #fireButton {
+            background: linear-gradient(145deg, #ffd700, #ff8c00);
+        }
+        #warpSpeedButton {
+            background: linear-gradient(145deg, #8a2be2, #4b0082);
+        }
+        #magnetButton {
+            background: linear-gradient(145deg, #42a5f5, #1565c0);
+        }
+
+        .action-button {
+            padding: 20px 40px;
+            box-shadow: 0 4px 15px rgba(0, 255, 255, 0.4);
+        }
+        
+        .action-button.disabled {
+            filter: grayscale(100%);
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        #message-box {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #0ff;
+            color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 2000;
+            display: none;
+            text-align: center;
+            font-size: 3em;
+            box-shadow: 0 0 20px #a4f;
+        }
+        
+        @keyframes ship-hit {
+            0% { filter: brightness(1) drop-shadow(0 0 5px rgba(255, 255, 255, 0.8)); }
+            50% { filter: brightness(3) drop-shadow(0 0 20px rgba(255, 255, 255, 1)); }
+            100% { filter: brightness(1) drop-shadow(0 0 5px rgba(255, 255, 255, 0.8)); }
+        }
+        
+        .ship-invincible {
+            animation: ship-hit 0.2s linear infinite;
+        }
+
+        /* Particles */
+        .particle {
+            position: absolute;
+            background-color: #fff;
+            border-radius: 50%;
+            opacity: 0;
+            animation: particle-fade 1s forwards;
+            pointer-events: none;
+        }
+
+        @keyframes particle-fade {
+            from { opacity: 1; transform: scale(1); }
+            to { opacity: 0; transform: scale(2); }
+        }
+        
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="ui-overlay">
+            <div id="distance" class="ui-panel">0 light-years</div>
+            <div id="light-years-to-go" class="ui-panel"></div>
+            <div id="debris-count" class="ui-panel">Debris: 0</div>
+            <div id="shields-count" class="ui-panel">Shields: 3</div>
+            <div id="combo-display" class="ui-panel" style="display: none;"></div>
+            <div id="score-display" class="ui-panel" style="display: none;">Score: 0</div>
+        </div>
+        <div id="game-controls">
+            <button id="thrustButton" class="action-button" style="display: none;">Thrust</button>
+            <button id="fireButton" class="action-button" style="display: none;">Fire</button>
+            <button id="magnetButton" class="action-button" style="display: none;">Magnet</button>
+            <button id="warpSpeedButton" class="action-button" style="display: none;">Warp Speed</button>
+        </div>
+    </div>
+
+    <div id="start-screen">
+        <h2>Welcome, Space Traveler!</h2>
+        <p>The year is 3000. Your home planet, Earth, is no longer a viable home. You have been tasked with finding a new planet for humanity to inhabit. Navigate your ship through asteroid fields to reach potential new homes. Be careful, a single collision will end your journey. Along the way, collect space debris to improve your ship!</p>
+        <div class="modal-buttons">
+            <button id="playButton">Play</button>
+            <button id="shopButton">Shop</button>
+            <button id="achievementsButton">Achievements</button>
+        </div>
+    </div>
+    
+    <div id="play-options-modal">
+        <h2>Begin Your Journey</h2>
+        <p>Choose your game mode:</p>
+        <div class="modal-buttons">
+            <button id="levelSelectButton">Level Select</button>
+            <button id="missionsButton">Scouting Missions</button>
+        </div>
+        <button id="playOptionsCloseButton">Return</button>
+    </div>
+    
+    <div id="level-select-modal">
+        <h2>Select Your Destination</h2>
+        <p>Choose a planet to begin your search for a new home.</p>
+        <ul id="level-select-list"></ul>
+        <button id="levelSelectCloseButton">Return</button>
+    </div>
+
+    <div id="missions-modal">
+        <h2>Scouting Missions</h2>
+        <p>Test your skills on these replayable challenges. Score is tracked for bragging rights!</p>
+        <ul id="missions-list"></ul>
+        <button id="missionsCloseButton">Return</button>
+    </div>
+    
+    <div id="achievements-modal">
+        <h2>Achievements</h2>
+        <p>View your completed milestones.</p>
+        <ul id="achievements-list"></ul>
+        <button id="achievementsCloseButton">Return</button>
+    </div>
+    
+    <div id="shop-modal">
+        <h2>The Debris Shop</h2>
+        <p>Current Debris: <span id="shop-debris-count">0</span></p>
+        <div class="shop-section">
+            <h3>Ship Upgrades</h3>
+            <ul id="ship-items"></ul>
+        </div>
+        <button id="shopCloseButton">Return</button>
+    </div>
+
+    <div id="planet-info-modal">
+        <div class="modal-content">
+            <h3 id="planet-name"></h3>
+            <p id="planet-description"></p>
+            <p id="planet-riddle"></p>
+            <div class="advantage">
+                <h4>Advantages:</h4>
+                <ul id="planet-advantages"></ul>
+            </div>
+            <div class="disadvantage">
+                <h4>Disadvantages:</h4>
+                <ul id="planet-disadvantages"></ul>
+            </div>
+            <div class="modal-buttons">
+                <button id="nextLevelButton">Continue Journey</button>
+                <button id="shareButton">Share Arrival</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="message-box"></div>
+
+    <div id="game-over" style="display: none;">
+        <h2>Journey Ended</h2>
+        <p id="game-over-message">Your ship was lost in the vastness of space. The cosmos awaits a new explorer.</p>
+        <button id="shareRestartButton">Share & Restart</button>
+    </div>
+
+    <div id="congratulations" style="display: none;">
+        <h2>Congratulations!</h2>
+        <p id="final-message"></p>
+        <p id="final-score" style="display: none;"></p>
+        <button id="shareFinalRestartButton">Share & Restart</button>
+    </div>
+    
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Set up canvas size
+    const GAME_WIDTH = 800;
+    const GAME_HEIGHT = 600;
+    canvas.width = GAME_WIDTH;
+    canvas.height = GAME_HEIGHT;
+
+    const startScreen = document.getElementById('start-screen');
+    const playButton = document.getElementById('playButton');
+    const shopButton = document.getElementById('shopButton');
+    const achievementsButton = document.getElementById('achievementsButton');
+    const playOptionsModal = document.getElementById('play-options-modal');
+    const playOptionsCloseButton = document.getElementById('playOptionsCloseButton');
+    const levelSelectButton = document.getElementById('levelSelectButton');
+    const missionsButton = document.getElementById('missionsButton');
+    const levelSelectModal = document.getElementById('level-select-modal');
+    const levelSelectCloseButton = document.getElementById('levelSelectCloseButton');
+    const levelSelectList = document.getElementById('level-select-list');
+    const missionsModal = document.getElementById('missions-modal');
+    const missionsCloseButton = document.getElementById('missionsCloseButton');
+    const missionsList = document.getElementById('missions-list');
+    const achievementsModal = document.getElementById('achievements-modal');
+    const achievementsCloseButton = document.getElementById('achievementsCloseButton');
+    const achievementsList = document.getElementById('achievements-list');
+    const shopModal = document.getElementById('shop-modal');
+    const shopCloseButton = document.getElementById('shopCloseButton');
+    const shipItemsList = document.getElementById('ship-items');
+    const shopDebrisCount = document.getElementById('shop-debris-count');
+    const planetInfoModal = document.getElementById('planet-info-modal');
+    const planetNameEl = document.getElementById('planet-name');
+    const planetDescriptionEl = document.getElementById('planet-description');
+    const planetRiddleEl = document.getElementById('planet-riddle');
+    const planetAdvantagesEl = document.getElementById('planet-advantages');
+    const planetDisadvantagesEl = document = document.getElementById('planet-disadvantages');
+    const nextLevelButton = document.getElementById('nextLevelButton');
+    const shareButton = document.getElementById('shareButton');
+    const distanceDisplay = document.getElementById('distance');
+    const debrisCountDisplay = document.getElementById('debris-count');
+    const shieldsCountDisplay = document.getElementById('shields-count');
+    const lightYearsToGoDisplay = document.getElementById('light-years-to-go');
+    const gameOverScreen = document.getElementById('game-over');
+    const shareRestartButton = document.getElementById('shareRestartButton');
+    const congratulationsScreen = document.getElementById('congratulations');
+    const shareFinalRestartButton = document.getElementById('shareFinalRestartButton');
+    const finalMessageEl = document.getElementById('final-message');
+    const finalScoreEl = document.getElementById('final-score');
+    const thrustButton = document.getElementById('thrustButton');
+    const fireButton = document.getElementById('fireButton');
+    const warpSpeedButton = document.getElementById('warpSpeedButton');
+    const magnetButton = document.getElementById('magnetButton');
+    const messageBox = document.getElementById('message-box');
+    const comboDisplay = document.getElementById('combo-display');
+    const scoreDisplay = document.getElementById('score-display');
+    const gameOverMessageEl = document.getElementById('game-over-message');
+
+    // Game variables
+    let gameStarted = false;
+    let gameOver = false;
+    let isThrusting = false;
+    let isPaused = true;
+    let currentPlanetIndex = 0;
+    let debrisCount = 0;
+    let shields = 3;
+    let score = 0;
+    let unlockedLevels = 2;
+    let distance = 0;
+    let frames = 0;
+    let lastTime = 0;
+    
+    // Combo system
+    let comboCount = 0;
+    let comboTimer = 0;
+    const COMBO_TIMEOUT = 1000;
+
+    // Ship properties
+    const ship = {
+        x: GAME_WIDTH / 4,
+        y: GAME_HEIGHT / 2,
+        baseRadius: 15,
+        radius: 15,
+        velocity: 0,
+        lift: -8,
+        color: '🚀',
+        isInvincible: false,
+        isSmall: false,
+        magnetActive: false,
+        speedBoostActive: false,
+    };
+    
+    // Star properties
+    let stars = [];
+    const NUM_STARS = 200;
+
+    // Obstacle properties
+    let obstacles = [];
+    let obstacleSpeed = 3;
+    let obstacleSpawnRate = 120;
+    
+    // Debris properties
+    let debris = [];
+    let debrisSpawnRate = 100;
+    
+    // Projectiles
+    let projectiles = [];
+    
+    // Boosts
+    let isWarpSpeedActive = false;
+    let warpSpeedDuration = 5000;
+    let warpSpeedStartTime = 0;
+    
+    let isMagnetActive = false;
+    let magnetDuration = 5000;
+    let magnetStartTime = 0;
+
+    // Game Modes
+    let isMissionMode = false;
+    let missionTime = 0;
+    
+    // Achievements
+    const achievements = [
+        { id: 'first_debris', name: 'First Debris!', description: 'Collect your first piece of space debris.', completed: false },
+        { id: '10_combo', name: 'Combo Master', description: 'Achieve a combo of 10.', completed: false },
+        { id: 'reach_mars', name: 'Red Planet Pioneer', description: 'Complete the journey to Mars.', completed: false },
+        { id: 'warp_speed_master', name: 'Warp Speed', description: 'Purchase the warp speed upgrade.', completed: false },
+        { id: 'debris_hoarder', name: 'Debris Hoarder', description: 'Have 50 debris at once.', completed: false },
+    ];
+    
+    const planets = [
+        { name: "Mercury", emoji: "☄️", distance: 10, info: "Mercury is the smallest planet in our solar system and the closest to the Sun. Its proximity to the Sun causes extreme temperature swings.", riddle: "I have mountains but no air, a surface scarred by craters. I'm quick in my orbit, a speedy little brother. What am I?", advantages: ["Short travel time from the Sun", "Abundant solar energy"], disadvantages: ["Extreme temperature fluctuations", "No atmosphere to breathe", "High radiation"] },
+        { name: "Venus", emoji: "🌋", distance: 25, info: "Venus is Earth's 'sister planet' in size, but its thick, toxic atmosphere traps heat in a runaway greenhouse effect, making it the hottest planet.", riddle: "I'm named after the goddess of love, but my atmosphere is a hot, acidic mess. I spin backward from all my peers. What am I?", advantages: ["Similar size and gravity to Earth"], disadvantages: ["Surface temperature of 465°C", "Atmosphere of carbon dioxide and sulfuric acid"] },
+        { name: "Earth", emoji: "🌍", distance: 40, info: "The third planet from the Sun and the only known astronomical object to harbor life. Its oceans of liquid water and breathable atmosphere make it unique.", riddle: "I am the home you seek, blue and green, where life thrives and seasons preen. I have a single companion in my sky. What am I?", advantages: ["Liquid water and breathable atmosphere", "Abundant flora and fauna", "Suitable temperatures"], disadvantages: ["Prone to natural disasters", "Already heavily populated", "Slightly less challenging now"] },
+        { name: "Mars", emoji: "🔴", distance: 60, info: "Known as the Red Planet, Mars is a cold, desert world with polar ice caps and a thin atmosphere. It's the most explored planet after Earth.", riddle: "I am a rusty red traveler, a destination of dreams for many. My moons are tiny, my dust storms are grand. What am I?", advantages: ["Presence of water ice", "Potential for terraforming", "Similar day/night cycle to Earth"], disadvantages: ["Extremely cold temperatures", "Very thin, unbreathable atmosphere", "Frequent dust storms"] },
+        { name: "Jupiter", emoji: "🪐", distance: 120, info: "Jupiter is a gas giant and the largest planet in our solar system. Its iconic Great Red Spot is a massive storm that has raged for centuries.", riddle: "I am a king among my peers, a great red eye watches over me. I have many moons and no solid ground. What am I?", advantages: ["Incredible size and power", "A great shield for the inner planets"], disadvantages: ["No solid surface", "Intense radiation and magnetic fields", "Powerful, deadly storms"] },
+        { name: "Saturn", emoji: "🪐", distance: 200, info: "Known for its magnificent system of rings, Saturn is another gas giant. The rings are made of ice particles and rock, and it's the second-largest planet.", riddle: "I am a celestial ring-bearer, a beautiful giant of gas. My rings are my crown, a sight to behold. What am I?", advantages: ["Breathtaking views of the rings", "Many moons to explore"], disadvantages: ["No solid surface", "Extremely strong winds and storms", "Very cold temperatures"] },
+        { name: "Uranus", emoji: "🌀", distance: 400, info: "Uranus is a unique ice giant that rotates on its side, a trait that gives it extreme seasons. It has a faint ring system and a core of rock and ice.", riddle: "I'm a frosty blue giant, a peculiar dancer in the dark. I tumble through space on my side. What am I?", advantages: ["Unique rotational axis could offer new perspectives"], disadvantages: ["Tilted sideways on its axis", "Extremely cold", "Methane atmosphere"] },
+        { name: "Neptune", emoji: "🌊", distance: 500, info: "The farthest planet from the Sun, Neptune is a stormy, windy world. It's another ice giant with the fastest winds in the solar system.", riddle: "I'm the farthest from our star, a deep blue giant with powerful gales. My great dark spot comes and goes. What am I?", advantages: ["Serene and isolated"], disadvantages: ["Farthest from the Sun", "Extremely cold temperatures", "Fastest winds in the solar system"] }
+    ];
+
+    const missions = [
+        { id: 'short_scout', name: 'Short Scout', description: 'Survive for 60 seconds.', time: 60, movingRocks: false },
+        { id: 'debris_run', name: 'Debris Run', description: 'Collect 100 debris in a single run.', time: Infinity, movingRocks: false },
+        { id: 'combo_challenge', name: 'Combo Challenge', description: 'Achieve a 10x combo.', time: Infinity, movingRocks: true },
+        { id: 'hard_mode', name: 'Hard Mode', description: 'Survive for 120 seconds with moving obstacles.', time: 120, movingRocks: true },
+    ];
+    
+    const shopItems = {
+        ship: [
+            { id: 'gun', name: 'Gun', cost: 10, purchased: false, description: 'Shoot a projectile to clear obstacles.' },
+            { id: 'smallShip', name: 'Miniature Ship', cost: 15, purchased: false, description: 'Permanently shrinks your ship for easier navigation.' },
+            { id: 'extraShields', name: 'Extra Shields', cost: 5, purchased: false, description: 'Adds one permanent shield to your ship.', bonus: 1 },
+            { id: 'betterDebris', name: 'Debris Scanners', cost: 10, purchased: false, description: 'Doubles the value of debris collected.', bonus: 2 },
+            { id: 'warpSpeed', name: 'Warp Drive', cost: 20, purchased: false, description: 'Allows you to activate warp speed once per journey.' },
+            { id: 'magnet', name: 'Debris Magnet', cost: 25, purchased: false, description: 'Allows you to pull in nearby debris for a short time.' },
+        ]
+    };
+    
+    // State to persist
+    let gameState = {
+        debrisCount: 0,
+        unlockedLevels: 2,
+        shopItems: shopItems.ship.map(i => ({ id: i.id, purchased: i.purchased, bonus: i.bonus })),
+        achievements: achievements.map(a => ({ id: a.id, completed: a.completed })),
+    };
+
+    let currentMission = null;
+
+    // Functions
+    function saveGameState() {
+        localStorage.setItem('spaceTravelerState', JSON.stringify(gameState));
+    }
+    
+    function loadGameState() {
+        const savedState = localStorage.getItem('spaceTravelerState');
+        if (savedState) {
+            const loadedState = JSON.parse(savedState);
+            gameState.debrisCount = loadedState.debrisCount;
+            gameState.unlockedLevels = loadedState.unlockedLevels;
+            
+            loadedState.shopItems.forEach(savedItem => {
+                const item = shopItems.ship.find(i => i.id === savedItem.id);
+                if (item) item.purchased = savedItem.purchased;
+            });
+            
+            loadedState.achievements.forEach(savedAchievement => {
+                const ach = achievements.find(a => a.id === savedAchievement.id);
+                if (ach) ach.completed = savedAchievement.completed;
+            });
+
+            // Apply permanent upgrades
+            const smallShipItem = shopItems.ship.find(item => item.id === 'smallShip');
+            if (smallShipItem && smallShipItem.purchased) {
+                ship.radius = 10;
+                ship.isSmall = true;
+            }
+            const extraShields = shopItems.ship.find(item => item.id === 'extraShields');
+            if (extraShields.purchased) {
+                shields = 4;
+            }
+        }
+        debrisCount = gameState.debrisCount;
+        unlockedLevels = gameState.unlockedLevels;
+        updateUI();
+    }
+    
+    function updateUI() {
+        debrisCountDisplay.textContent = `Debris: ${debrisCount}`;
+        shieldsCountDisplay.textContent = `Shields: ${shields}`;
+        shopDebrisCount.textContent = debrisCount;
+        
+        // Update button visibility based on purchases
+        fireButton.style.display = shopItems.ship.find(item => item.id === 'gun').purchased ? 'block' : 'none';
+        warpSpeedButton.style.display = shopItems.ship.find(item => item.id === 'warpSpeed').purchased ? 'block' : 'none';
+        magnetButton.style.display = shopItems.ship.find(item => item.id === 'magnet').purchased ? 'block' : 'none';
+    }
+
+    function drawShip() {
+        ctx.font = `${ship.radius * 2}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(ship.color, ship.x, ship.y);
+    }
+    
+    function initStars() {
+        stars = [];
+        for (let i = 0; i < NUM_STARS; i++) {
+            stars.push({
+                x: Math.random() * GAME_WIDTH,
+                y: Math.random() * GAME_HEIGHT,
+                size: Math.random() * 2,
+                speed: Math.random() * 0.5 + 0.1
+            });
+        }
+    }
+    
+    function drawStars() {
+        ctx.fillStyle = '#fff';
+        stars.forEach(star => {
+            ctx.beginPath();
+            ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+            ctx.fill();
+        });
+    }
+    
+    function updateStars() {
+        stars.forEach(star => {
+            star.x -= star.speed;
+            if (star.x < 0) {
+                star.x = GAME_WIDTH;
+                star.y = Math.random() * GAME_HEIGHT;
+                star.size = Math.random() * 2;
+                star.speed = Math.random() * 0.5 + 0.1;
+            }
+        });
+    }
+
+    function updateShip() {
+        if (isThrusting) {
+            ship.y += ship.lift / 2;
+        } else {
+            ship.y -= ship.lift / 2;
+        }
+        if (ship.y - ship.radius < 0) ship.y = ship.radius;
+        if (ship.y + ship.radius > GAME_HEIGHT) {
+            if (isMissionMode) {
+                endGame("Your ship was lost while trying to complete the mission.");
+            } else {
+                ship.y = GAME_HEIGHT - ship.radius;
+            }
+        }
+    }
+
+    function drawObstacle(obstacle) {
+        ctx.font = `${obstacle.radius * 2}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = '#ff0000'; // Big red glow for bad objects
+        ctx.fillText('🪨', obstacle.x, obstacle.y);
+        ctx.shadowBlur = 0; // Reset shadow
+    }
+    
+    function updateObstacles() {
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+            const obstacle = obstacles[i];
+            obstacle.x -= obstacleSpeed;
+            if (obstacle.isMoving) {
+                obstacle.y += obstacle.vy;
+                if (obstacle.y < 0 || obstacle.y > GAME_HEIGHT) {
+                    obstacle.vy *= -1;
+                }
+            }
+            if (obstacle.x + obstacle.radius < 0) {
+                obstacles.splice(i, 1);
+            }
+        }
+    }
+
+    function createObstacle() {
+        const y = Math.random() * (GAME_HEIGHT - 50) + 25;
+        const radius = 15;
+        const isMoving = isMissionMode && currentMission.movingRocks && Math.random() < 0.3; // 30% chance of a moving rock
+        const vy = isMoving ? (Math.random() < 0.5 ? 1 : -1) : 0;
+
+        const obstacle = {
+            x: GAME_WIDTH,
+            y: y,
+            radius: radius,
+            isBad: true,
+            isMoving: isMoving,
+            vy: vy
+        };
+        obstacles.push(obstacle);
+    }
+    
+    function drawDebris(d) {
+        ctx.font = `${d.radius * 2}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        ctx.shadowBlur = 15;
+        if (d.type === 'bonus') {
+            ctx.shadowColor = '#C0C0C0'; // Silver glow for bonus
+        } else {
+            ctx.shadowColor = '#00ff00'; // Green glow for good
+        }
+        
+        ctx.fillText('🔩', d.x, d.y);
+        ctx.shadowBlur = 0; // Reset shadow
+    }
+    
+    function updateDebris() {
+        for (let i = debris.length - 1; i >= 0; i--) {
+            const d = debris[i];
+            
+            if (ship.magnetActive) {
+                const dx = ship.x - d.x;
+                const dy = ship.y - d.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < 150) { // Magnet radius
+                    d.x += (dx / dist) * 2;
+                    d.y += (dy / dist) * 2;
+                }
+            }
+            
+            d.x -= obstacleSpeed;
+            if (isWarpSpeedActive) {
+                d.x -= 1;
+            }
+            if (d.x + d.radius < 0) {
+                debris.splice(i, 1);
+            }
+        }
+    }
+
+    function createDebris() {
+        const y = Math.random() * (GAME_HEIGHT - 50) + 25;
+        const isBonus = Math.random() < 0.2; // 20% chance for a bonus
+        const value = isBonus ? (Math.random() < 0.5 ? 5 : 10) : 1;
+        
+        let emoji = '🔩';
+
+        debris.push({
+            x: GAME_WIDTH,
+            y: y,
+            radius: 12,
+            emoji: emoji,
+            value: value,
+            type: isBonus ? 'bonus' : 'normal'
+        });
+    }
+
+    function createParticle(x, y, color) {
+        const particle = document.createElement('div');
+        particle.classList.add('particle');
+        particle.style.left = `${x}px`;
+        particle.style.top = `${y}px`;
+        particle.style.backgroundColor = color;
+        particle.style.width = `${Math.random() * 5 + 3}px`;
+        particle.style.height = particle.style.width;
+        
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 3 + 1;
+        const vx = Math.cos(angle) * speed;
+        const vy = Math.sin(angle) * speed;
+        
+        let life = 60;
+        
+        function animateParticle() {
+            if (life <= 0) {
+                particle.remove();
+                return;
+            }
+            x += vx;
+            y += vy;
+            particle.style.left = `${x}px`;
+            particle.style.top = `${y}px`;
+            particle.style.opacity = life / 60;
+            life--;
+            requestAnimationFrame(animateParticle);
+        }
+        
+        document.body.appendChild(particle);
+        animateParticle();
+    }
+    
+    function fireProjectile() {
+        if (!isPaused && gameStarted && shopItems.ship.find(item => item.id === 'gun').purchased) {
+            projectiles.push({
+                x: ship.x + ship.radius,
+                y: ship.y,
+                radius: 5,
+                speed: 10,
+                color: '#fff'
+            });
+        }
+    }
+    
+    function updateProjectiles() {
+        for (let i = projectiles.length - 1; i >= 0; i--) {
+            const p = projectiles[i];
+            p.x += p.speed;
+            
+            // Check for collision with obstacles
+            for (let j = obstacles.length - 1; j >= 0; j--) {
+                const obstacle = obstacles[j];
+                
+                const dx = p.x - obstacle.x;
+                const dy = p.y - obstacle.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < p.radius + obstacle.radius) {
+                    obstacles.splice(j, 1);
+                    projectiles.splice(i, 1);
+                    break;
+                }
+            }
+            
+            if (projectiles[i] && projectiles[i].x > GAME_WIDTH) {
+                projectiles.splice(i, 1);
+            }
+        }
+    }
+    
+    function drawProjectiles() {
+        projectiles.forEach(p => {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+            ctx.fillStyle = p.color;
+            ctx.fill();
+        });
+    }
+
+    function checkCollision() {
+        if (ship.isInvincible) {
+            return;
+        }
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+            const obstacle = obstacles[i];
+            const dx = ship.x - obstacle.x;
+            const dy = ship.y - obstacle.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance < ship.radius + obstacle.radius) {
+                if (shields > 0) {
+                    shields--;
+                    ship.isInvincible = true;
+                    updateUI();
+                    comboCount = 0; // Reset combo on hit
+                    updateComboUI();
+                    setTimeout(() => {
+                        ship.isInvincible = false;
+                    }, 2000);
+                    showMessage("Shields saved you!", 1500);
+                } else {
+                    endGame("Your ship was destroyed by an obstacle.");
+                }
+            }
+        }
+    }
+    
+    function checkDebrisCollision() {
+        for (let i = debris.length - 1; i >= 0; i--) {
+            const d = debris[i];
+            const dx = ship.x - d.x;
+            const dy = ship.y - d.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            if (distance < ship.radius + d.radius) {
+                const betterDebrisItem = shopItems.ship.find(item => item.id === 'betterDebris');
+                const debrisValue = betterDebrisItem.purchased ? d.value * betterDebrisItem.bonus : d.value;
+                debrisCount += debrisValue;
+                gameState.debrisCount = debrisCount; // Update state object
+                saveGameState(); // Save state
+                if(isMissionMode) score += debrisValue * (comboCount > 0 ? comboCount : 1);
+                
+                // Achievement check
+                if (debrisCount >= 50 && !achievements.find(a => a.id === 'debris_hoarder').completed) {
+                    achievements.find(a => a.id === 'debris_hoarder').completed = true;
+                    gameState.achievements.find(a => a.id === 'debris_hoarder').completed = true;
+                    saveGameState();
+                    showMessage("Achievement unlocked: Debris Hoarder!");
+                }
+                if (!achievements.find(a => a.id === 'first_debris').completed) {
+                    achievements.find(a => a.id === 'first_debris').completed = true;
+                    gameState.achievements.find(a => a.id === 'first_debris').completed = true;
+                    saveGameState();
+                    showMessage("Achievement unlocked: First Debris!");
+                }
+
+                // Combo system
+                comboCount++;
+                comboTimer = performance.now();
+                updateComboUI();
+
+                // Particle effect on collection
+                const canvasRect = canvas.getBoundingClientRect();
+                const particleX = canvasRect.left + d.x;
+                const particleY = canvasRect.top + d.y;
+                createParticle(particleX, particleY, d.type === 'bonus' ? '#C0C0C0' : '#00ff00');
+
+                debris.splice(i, 1);
+                updateUI();
+            }
+        }
+    }
+
+    function updateComboUI() {
+        if (comboCount > 1) {
+            comboDisplay.textContent = `Combo x${comboCount}`;
+            comboDisplay.style.display = 'block';
+            comboDisplay.classList.add('combo-active');
+        } else {
+            comboDisplay.style.display = 'none';
+            comboDisplay.classList.remove('combo-active');
+        }
+
+        if (comboCount >= 10 && !achievements.find(a => a.id === '10_combo').completed) {
+            achievements.find(a => a.id === '10_combo').completed = true;
+            gameState.achievements.find(a => a.id === '10_combo').completed = true;
+            saveGameState();
+            showMessage("Achievement unlocked: Combo Master!");
+        }
+    }
+
+    function updateDifficulty() {
+        const difficultyFactor = currentPlanetIndex / (planets.length - 1);
+        obstacleSpeed = 2 + 4 * difficultyFactor;
+        
+        let totalDistance = 0;
+        for (let i = 0; i <= currentPlanetIndex; i++) {
+            totalDistance += planets[i].distance;
+        }
+        obstacleSpawnRate = 160 - totalDistance / 5;
+        if (obstacleSpawnRate < 60) obstacleSpawnRate = 60;
+    }
+    
+    function showMessage(text, duration = 2000) {
+        messageBox.textContent = text;
+        messageBox.style.display = 'block';
+        setTimeout(() => {
+            messageBox.style.display = 'none';
+        }, duration);
+    }
+    
+    function startCountdown(callback) {
+        isPaused = true;
+        let count = 3;
+        messageBox.textContent = count;
+        messageBox.style.display = 'block';
+        
+        const countdownInterval = setInterval(() => {
+            count--;
+            if (count > 0) {
+                messageBox.textContent = count;
+            } else {
+                clearInterval(countdownInterval);
+                messageBox.style.display = 'none';
+                isPaused = false;
+                callback();
+            }
+        }, 1000);
+    }
+    
+    function showPlayOptions() {
+        isPaused = true;
+        startScreen.style.display = 'none';
+        playOptionsModal.style.display = 'block';
+    }
+
+    function showLevelSelect() {
+        isPaused = true;
+        playOptionsModal.style.display = 'none';
+        levelSelectModal.style.display = 'block';
+        levelSelectList.innerHTML = '';
+        planets.forEach((planet, index) => {
+            const li = document.createElement('li');
+            li.textContent = `${planet.name} ${planet.emoji}`;
+            
+            const distanceSpan = document.createElement('span');
+            distanceSpan.textContent = `(${planet.distance} LY)`;
+            distanceSpan.style.display = 'block';
+            distanceSpan.style.marginTop = '5px';
+            li.appendChild(distanceSpan);
+            
+            if (index < unlockedLevels) {
+                li.dataset.index = index;
+                li.addEventListener('click', () => {
+                    isMissionMode = false;
+                    startLevel(index);
+                });
+            } else {
+                li.classList.add('locked');
+                const lockedLabel = document.createElement('span');
+                lockedLabel.textContent = 'LOCKED';
+                lockedLabel.classList.add('locked-label');
+                li.appendChild(lockedLabel);
+            }
+            levelSelectList.appendChild(li);
+        });
+    }
+
+    function showMissions() {
+        isPaused = true;
+        playOptionsModal.style.display = 'none';
+        missionsModal.style.display = 'block';
+        missionsList.innerHTML = '';
+        
+        missions.forEach(mission => {
+            const li = document.createElement('li');
+            li.textContent = mission.name;
+            const desc = document.createElement('p');
+            desc.textContent = mission.description;
+            li.appendChild(desc);
+            li.addEventListener('click', () => {
+                isMissionMode = true;
+                startMission(mission);
+            });
+            missionsList.appendChild(li);
+        });
+    }
+    
+    function showAchievements() {
+        isPaused = true;
+        startScreen.style.display = 'none';
+        achievementsModal.style.display = 'block';
+        achievementsList.innerHTML = '';
+        
+        achievements.forEach(ach => {
+            const li = document.createElement('li');
+            li.textContent = ach.name;
+            const desc = document.createElement('p');
+            desc.textContent = ach.description;
+            li.appendChild(desc);
+            if (ach.completed) {
+                li.classList.add('achievement-completed');
+            }
+            achievementsList.appendChild(li);
+        });
+    }
+
+    function showShop() {
+        isPaused = true;
+        startScreen.style.display = 'none';
+        shopModal.style.display = 'block';
+        shipItemsList.innerHTML = '';
+        shopDebrisCount.textContent = debrisCount;
+
+        shopItems.ship.forEach(item => {
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <p>${item.name}</p>
+                <p>${item.description}</p>
+                <p class="item-cost">Cost: ${item.cost} Debris</p>
+            `;
+            if (item.purchased) {
+                 li.classList.add('locked');
+            } else if (debrisCount >= item.cost) {
+                li.addEventListener('click', () => buyUpgrade(item.id, 'ship'));
+            } else {
+                li.classList.add('locked');
+            }
+            shipItemsList.appendChild(li);
+        });
+    }
+
+    function buyUpgrade(itemId, itemType) {
+        const item = shopItems[itemType].find(item => item.id === itemId);
+        if (item && debrisCount >= item.cost) {
+            debrisCount -= item.cost;
+            gameState.debrisCount = debrisCount;
+            
+            item.purchased = true;
+            const stateItem = gameState.shopItems.find(i => i.id === itemId);
+            if (stateItem) {
+              stateItem.purchased = true;
+            }
+
+            if (item.id === 'smallShip') {
+                ship.radius = 10;
+                ship.isSmall = true;
+            }
+            if (item.id === 'extraShields') {
+                shields = 4;
+            }
+            if (item.id === 'betterDebris') {
+                // Debris value is handled in checkDebrisCollision
+            }
+            if (item.id === 'warpSpeed' && !achievements.find(a => a.id === 'warp_speed_master').completed) {
+                achievements.find(a => a.id === 'warp_speed_master').completed = true;
+                gameState.achievements.find(a => a.id === 'warp_speed_master').completed = true;
+                showMessage("Achievement unlocked: Warp Speed!");
+            }
+            
+            saveGameState();
+            showShop();
+            updateUI();
+            showMessage(`${item.name} purchased!`, 1500);
+        } else {
+            showMessage("Not enough debris!", 1500);
+        }
+    }
+
+    function startGame() {
+        isPaused = false;
+        gameStarted = true;
+        gameOver = false;
+        
+        // Reset game state
+        ship.y = GAME_HEIGHT / 2;
+        ship.velocity = 0;
+        obstacles = [];
+        debris = [];
+        projectiles = [];
+        distance = 0;
+        frames = 0;
+        score = 0;
+        
+        thrustButton.style.display = 'block';
+        fireButton.style.display = shopItems.ship.find(item => item.id === 'gun').purchased ? 'block' : 'none';
+        warpSpeedButton.style.display = shopItems.ship.find(item => item.id === 'warpSpeed').purchased ? 'block' : 'none';
+        magnetButton.style.display = shopItems.ship.find(item => item.id === 'magnet').purchased ? 'block' : 'none';
+
+        initStars();
+        updateDifficulty();
+        requestAnimationFrame(animate);
+    }
+    
+    function startLevel(index) {
+        currentPlanetIndex = index;
+        currentMission = null;
+        levelSelectModal.style.display = 'none';
+        startCountdown(startGame);
+    }
+    
+    function startMission(mission) {
+        currentMission = mission;
+        missionsModal.style.display = 'none';
+        startCountdown(startGame);
+    }
+
+
+    function endLevel() {
+        isPaused = true;
+        gameStarted = false;
+        
+        const currentPlanet = planets[currentPlanetIndex];
+        if (currentPlanet.name === 'Mars' && !achievements.find(a => a.id === 'reach_mars').completed) {
+            achievements.find(a => a.id === 'reach_mars').completed = true;
+            gameState.achievements.find(a => a.id === 'reach_mars').completed = true;
+            saveGameState();
+            showMessage("Achievement unlocked: Red Planet Pioneer!");
+        }
+
+        unlockedLevels = Math.min(planets.length, unlockedLevels + 1);
+        gameState.unlockedLevels = unlockedLevels;
+        saveGameState();
+        showPlanetInfo();
+        currentPlanetIndex++;
+    }
+
+    function endMission() {
+        isPaused = true;
+        gameStarted = false;
+        gameOverScreen.style.display = 'none';
+        congratulationsScreen.style.display = 'block';
+        finalMessageEl.textContent = "Mission complete!";
+        finalScoreEl.style.display = 'block';
+        finalScoreEl.textContent = `Final Score: ${score}`;
+        
+        thrustButton.style.display = 'none';
+        fireButton.style.display = 'none';
+        warpSpeedButton.style.display = 'none';
+        magnetButton.style.display = 'none';
+    }
+
+    function endGame(message) {
+        isPaused = true;
+        gameOver = true;
+        gameStarted = false;
+        gameOverScreen.style.display = 'block';
+        gameOverMessageEl.textContent = message;
+        
+        thrustButton.style.display = 'none';
+        fireButton.style.display = 'none';
+        warpSpeedButton.style.display = 'none';
+        magnetButton.style.display = 'none';
+        isWarpSpeedActive = false;
+        isMagnetActive = false;
+    }
+
+    // Event listeners
+    playButton.addEventListener('click', showPlayOptions);
+    playOptionsCloseButton.addEventListener('click', () => {
+        playOptionsModal.style.display = 'none';
+        startScreen.style.display = 'block';
+        isPaused = true;
+    });
+    shopButton.addEventListener('click', showShop);
+    achievementsButton.addEventListener('click', showAchievements);
+    
+    levelSelectButton.addEventListener('click', showLevelSelect);
+    levelSelectCloseButton.addEventListener('click', () => {
+        levelSelectModal.style.display = 'none';
+        playOptionsModal.style.display = 'block';
+        isPaused = true;
+    });
+    missionsButton.addEventListener('click', showMissions);
+    missionsCloseButton.addEventListener('click', () => {
+        missionsModal.style.display = 'none';
+        playOptionsModal.style.display = 'block';
+        isPaused = true;
+    });
+    achievementsCloseButton.addEventListener('click', () => {
+        achievementsModal.style.display = 'none';
+        startScreen.style.display = 'block';
+        isPaused = true;
+    });
+    
+    shopCloseButton.addEventListener('click', () => {
+        shopModal.style.display = 'none';
+        startScreen.style.display = 'block';
+        isPaused = true;
+    });
+    shareRestartButton.addEventListener('click', () => {
+        const shareText = `My space journey ended! I scored ${score} points and collected ${debrisCount} pieces of debris. Can you do better?`;
+        copyToClipboardAndRestart(shareText);
+    });
+    shareFinalRestartButton.addEventListener('click', () => {
+        const shareText = `I successfully completed the "${currentMission.name}" mission! My final score was ${score}. What's your best score?`;
+        copyToClipboardAndRestart(shareText);
+    });
+    
+    function copyToClipboardAndRestart(shareText) {
+        const tempTextarea = document.createElement('textarea');
+        tempTextarea.value = shareText;
+        document.body.appendChild(tempTextarea);
+        tempTextarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(tempTextarea);
+        showMessage('Score copied to clipboard!');
+        
+        // Wait a bit before restarting to let the user see the message
+        setTimeout(() => {
+            loadGameState();
+            gameOverScreen.style.display = 'none';
+            congratulationsScreen.style.display = 'none';
+            startScreen.style.display = 'block';
+            isPaused = true;
+        }, 1500);
+    }
+
+    nextLevelButton.addEventListener('click', () => {
+        planetInfoModal.classList.remove('visible');
+        if (currentPlanetIndex < planets.length) {
+            startLevel(currentPlanetIndex);
+        } else {
+            finalMessageEl.textContent = `You have successfully completed your journey and traveled to every planet! Your ship is now fully upgraded and ready for anything.`;
+            congratulationsScreen.style.display = 'block';
+            thrustButton.style.display = 'none';
+            fireButton.style.display = 'none';
+            warpSpeedButton.style.display = 'none';
+            magnetButton.style.display = 'none';
+        }
+    });
+
+    shareButton.addEventListener('click', () => {
+        const planet = planets[currentPlanetIndex - 1];
+        const shareText = `I just traveled to ${planet.name}! I passed through a difficult asteroid field and collected ${debrisCount} pieces of debris. Can you make it?`;
+        
+        const tempTextarea = document.createElement('textarea');
+        tempTextarea.value = shareText;
+        document.body.appendChild(tempTextarea);
+        tempTextarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(tempTextarea);
+        
+        showMessage('Copied to clipboard!');
+    });
+    
+    // Thrust button functionality
+    thrustButton.addEventListener('mousedown', () => {
+        if (!isPaused && gameStarted) isThrusting = true;
+    });
+    thrustButton.addEventListener('mouseup', () => {
+        isThrusting = false;
+    });
+    thrustButton.addEventListener('mouseleave', () => {
+        isThrusting = false;
+    });
+    
+    thrustButton.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        if (!isPaused && gameStarted) isThrusting = true;
+    });
+    thrustButton.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        isThrusting = false;
+    });
+    
+    // Fire button
+    fireButton.addEventListener('click', fireProjectile);
+    
+    // Warp speed button
+    warpSpeedButton.addEventListener('click', () => {
+        if (!isWarpSpeedActive) {
+            isWarpSpeedActive = true;
+            warpSpeedStartTime = performance.now();
+            ship.isInvincible = true;
+            showMessage("Warp speed activated!");
+        }
+    });
+
+    // Magnet button
+    magnetButton.addEventListener('click', () => {
+        if (!isMagnetActive) {
+            isMagnetActive = true;
+            magnetStartTime = performance.now();
+            showMessage("Magnet activated!", 1500);
+        }
+    });
+
+    // Initial call to start the animation loop
+    window.onload = function() {
+        loadGameState();
+        startScreen.style.display = 'block';
+    };
+
+    function showPlanetInfo() {
+        isPaused = true;
+        const planet = planets[currentPlanetIndex];
+        
+        if (!planet) {
+            finalMessageEl.textContent = `You have successfully completed your journey and traveled to every planet! Your ship is now fully upgraded and ready for anything.`;
+            congratulationsScreen.style.display = 'block';
+            thrustButton.style.display = 'none';
+            fireButton.style.display = 'none';
+            warpSpeedButton.style.display = 'none';
+            magnetButton.style.display = 'none';
+            return;
+        }
+
+        planetNameEl.textContent = `${planet.name} ${planet.emoji}`;
+        planetDescriptionEl.textContent = planet.info;
+        planetRiddleEl.textContent = `Riddle: ${planet.riddle}`;
+        
+        planetAdvantagesEl.innerHTML = '';
+        planet.advantages.forEach(adv => {
+            const li = document.createElement('li');
+            li.textContent = adv;
+            planetAdvantagesEl.appendChild(li);
+        });
+
+        planetDisadvantagesEl.innerHTML = '';
+        planet.disadvantages.forEach(dis => {
+            const li = document.createElement('li');
+            li.textContent = dis;
+            planetDisadvantagesEl.appendChild(li);
+        });
+        
+        planetInfoModal.classList.add('visible');
+        thrustButton.style.display = 'none';
+        fireButton.style.display = 'none';
+        warpSpeedButton.style.display = 'none';
+        magnetButton.style.display = 'none';
+    }
+
+    function animate(timestamp) {
+        if (gameOver || isPaused) return;
+        
+        const deltaTime = timestamp - lastTime;
+        lastTime = timestamp;
+        frames++;
+
+        // Combo timeout
+        if (comboCount > 0 && performance.now() - comboTimer > COMBO_TIMEOUT) {
+            comboCount = 0;
+            updateComboUI();
+        }
+
+        // Boost timers
+        if (isWarpSpeedActive) {
+            if (timestamp - warpSpeedStartTime > warpSpeedDuration) {
+                isWarpSpeedActive = false;
+                ship.isInvincible = false;
+                showMessage("Warp speed deactivated", 1000);
+            }
+        }
+        if (isMagnetActive) {
+            if (timestamp - magnetStartTime > magnetDuration) {
+                isMagnetActive = false;
+                showMessage("Magnet deactivated", 1000);
+            }
+        }
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        updateStars();
+        drawStars();
+
+        updateShip();
+        
+        if (ship.isInvincible) {
+            canvas.style.animation = 'ship-hit 0.2s linear infinite';
+        } else {
+            canvas.style.animation = 'none';
+        }
+        drawShip();
+        
+        // Obstacle logic
+        if (frames % obstacleSpawnRate === 0) {
+            createObstacle();
+        }
+        updateObstacles();
+        obstacles.forEach(drawObstacle);
+
+        // Debris logic
+        if (frames % debrisSpawnRate === 0) {
+            createDebris();
+        }
+        updateDebris();
+        debris.forEach(drawDebris);
+        
+        // Projectile logic
+        updateProjectiles();
+        drawProjectiles();
+
+        // Collision detection
+        checkCollision();
+        checkDebrisCollision();
+
+        // Update UI
+        if(isMissionMode) {
+            scoreDisplay.textContent = `Score: ${score}`;
+            lightYearsToGoDisplay.textContent = `Time Left: ${Math.max(0, currentMission.time - Math.floor(frames / 60))}s`;
+            if (frames / 60 >= currentMission.time) {
+                endMission();
+            }
+            scoreDisplay.style.display = 'block';
+            distanceDisplay.style.display = 'none';
+        } else {
+            distance += obstacleSpeed * (deltaTime / 1000) / 10;
+            distanceDisplay.textContent = `${distance.toFixed(1)} light-years`;
+            const currentPlanetDistance = planets[currentPlanetIndex].distance;
+            lightYearsToGoDisplay.textContent = `${(currentPlanetDistance - (distance / 10)).toFixed(1)} light-years to go`;
+            
+            if (distance >= currentPlanetDistance * 10) {
+                endLevel();
+            }
+            scoreDisplay.style.display = 'none';
+            distanceDisplay.style.display = 'block';
+        }
+        
+        requestAnimationFrame(animate);
+    }
+</script>
+
+</body>
+</html>
