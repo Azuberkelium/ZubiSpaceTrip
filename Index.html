@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Traveler</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #0d0d1a;
+            color: #ffffff;
+            font-family: 'Orbitron', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        #game-container {
+            position: relative;
+            border: 4px solid #fff;
+            box-shadow: 0 0 20px #a4f, 0 0 40px #a4f inset;
+            border-radius: 12px;
+            overflow: hidden;
+            width: 800px;
+            height: 600px;
+        }
+
+        canvas {
+            background-color: #00000a;
+            display: block;
+        }
+
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 15px;
+            box-sizing: border-box;
+            pointer-events: none;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .ui-panel {
+            font-size: 1.2em;
+            color: #fff;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 5px 15px;
+            border-radius: 8px;
+            margin: 5px;
+        }
+
+        #light-years-to-go {
+            font-size: 1.5em;
+            color: #0ff;
+        }
+        
+        #debris-count {
+            font-size: 1.5em;
+            color: #ffcc00;
+        }
+
+        #start-screen, #game-over, #congratulations, #climate-change-modal, #level-select-modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            padding: 40px;
+            border-radius: 15px;
+            border: 2px solid #fff;
+            box-shadow: 0 0 15px #0ff;
+            z-index: 10;
+        }
+        
+        #climate-change-modal, #level-select-modal {
+            display: none;
+            max-width: 600px;
+            padding: 50px;
+        }
+        
+        #level-select-list {
+            list-style: none;
+            padding: 0;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        #level-select-list li {
+            background: linear-gradient(145deg, #2a2a44, #1a1a2e);
+            border-radius: 10px;
+            padding: 15px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+            width: 150px;
+            text-align: center;
+        }
+        
+        #level-select-list li:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(164, 68, 255, 0.4);
+        }
+
+        h1 {
+            font-size: 2.5em;
+            color: #f7f7f7;
+            margin-bottom: 10px;
+        }
+        h2 {
+            font-size: 1.8em;
+            color: #0ff;
+            margin-top: 0;
+        }
+        p {
+            font-size: 1.1em;
+            line-height: 1.5;
+        }
+
+        button {
+            background: linear-gradient(145deg, #a4f, #0ff);
+            color: #fff;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.2em;
+            font-weight: bold;
+            font-family: 'Orbitron', sans-serif;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 15px rgba(0, 255, 255, 0.4);
+        }
+
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0, 255, 255, 0.6);
+        }
+
+        button:active {
+            transform: translateY(0);
+            box-shadow: 2px 2px 10px rgba(0, 255, 255, 0.3);
+        }
+        
+        #planet-info-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.5s, visibility 0.5s;
+        }
+
+        #planet-info-modal.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            border: 2px solid #0ff;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 700px;
+            text-align: center;
+            box-shadow: 0 0 25px #0ff;
+            transform: scale(0.9);
+            transition: transform 0.5s;
+        }
+        
+        #planet-info-modal.visible .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-content h3 {
+            font-size: 2.2em;
+            color: #a4f;
+            text-shadow: 2px 2px 4px #000;
+        }
+        .modal-content p {
+            font-size: 1.1em;
+            color: #ccc;
+            margin: 15px 0;
+            white-space: pre-wrap;
+        }
+        .modal-content h4 {
+            font-size: 1.4em;
+            color: #0ff;
+            margin-top: 20px;
+        }
+        .advantage, .disadvantage {
+            margin-top: 10px;
+        }
+        .advantage ul, .disadvantage ul {
+            list-style: none;
+            padding: 0;
+        }
+        .advantage li::before { content: '✅ '; color: limegreen; }
+        .disadvantage li::before { content: '❌ '; color: crimson; }
+        
+        .modal-buttons {
+            margin-top: 30px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+        
+        #thrustButton {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: linear-gradient(145deg, #ff6b6b, #e63946);
+            padding: 20px 40px;
+            box-shadow: 0 4px 15px rgba(230, 57, 70, 0.4);
+        }
+        
+        #message-box {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #0ff;
+            color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 2000;
+            display: none;
+            text-align: center;
+            font-size: 3em;
+            box-shadow: 0 0 20px #a4f;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="ui-overlay">
+            <div id="distance" class="ui-panel">0 light-years</div>
+            <div id="light-years-to-go" class="ui-panel"></div>
+            <div id="debris-count" class="ui-panel">Debris: 0</div>
+        </div>
+        <button id="thrustButton" style="display: none;">Thrust</button>
+    </div>
+
+    <div id="start-screen">
+        <h2>Welcome, Space Traveler!</h2>
+        <p>The year is 3000. Your home planet, Earth, is no longer a viable home due to climate change. You have been tasked with finding a new planet for humanity to inhabit. Navigate your ship through asteroid fields to reach potential new homes. Be careful, a single collision will end your journey. Along the way, collect space debris to help you build a new home!</p>
+        <div class="modal-buttons">
+            <button id="startButton">Start Journey</button>
+            <button id="levelSelectButton">Level Select</button>
+        </div>
+        <button id="climateChangeButton">Learn more about climate change</button>
+    </div>
+    
+    <div id="climate-change-modal">
+        <h2>Earth: The Year 3000</h2>
+        <p>After centuries of neglect, Earth's climate has become unstable. Rising temperatures and sea levels have consumed coastal cities, and extreme weather events are now the norm. The atmosphere, once a protective shield, is now filled with pollutants. A new home is no longer a choice, but a necessity.</p>
+        <button id="climateChangeCloseButton">Return</button>
+    </div>
+    
+    <div id="level-select-modal">
+        <h2>Select Your Destination</h2>
+        <p>Choose a planet to begin your search for a new home.</p>
+        <ul id="level-select-list"></ul>
+        <button id="levelSelectCloseButton">Return</button>
+    </div>
+
+    <div id="planet-info-modal">
+        <div class="modal-content">
+            <h3 id="planet-name"></h3>
+            <p id="planet-description"></p>
+            <p id="planet-riddle"></p>
+            <div class="advantage">
+                <h4>Advantages:</h4>
+                <ul id="planet-advantages"></ul>
+            </div>
+            <div class="disadvantage">
+                <h4>Disadvantages:</h4>
+                <ul id="planet-disadvantages"></ul>
+            </div>
+            <div class="modal-buttons">
+                <button id="nextLevelButton">Continue Journey</button>
+                <button id="shareButton">Share Arrival</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="message-box"></div>
+
+    <div id="game-over" style="display: none;">
+        <h2>Journey Ended</h2>
+        <p>Your ship was lost in the vastness of space. The cosmos awaits a new explorer.</p>
+        <button id="restartButton">Restart</button>
+    </div>
+
+    <div id="congratulations" style="display: none;">
+        <h2>Congratulations!</h2>
+        <p id="final-message"></p>
+        <button id="finalRestartButton">Start a New Journey</button>
+    </div>
+    
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Set up canvas size
+    const GAME_WIDTH = 800;
+    const GAME_HEIGHT = 600;
+    canvas.width = GAME_WIDTH;
+    canvas.height = GAME_HEIGHT;
+
+    const startScreen = document.getElementById('start-screen');
+    const startButton = document.getElementById('startButton');
+    const climateChangeButton = document.getElementById('climateChangeButton');
+    const levelSelectButton = document.getElementById('levelSelectButton');
+    const climateChangeModal = document.getElementById('climate-change-modal');
+    const climateChangeCloseButton = document.getElementById('climateChangeCloseButton');
+    const levelSelectModal = document.getElementById('level-select-modal');
+    const levelSelectCloseButton = document.getElementById('levelSelectCloseButton');
+    const levelSelectList = document.getElementById('level-select-list');
+    const planetInfoModal = document.getElementById('planet-info-modal');
+    const planetNameEl = document.getElementById('planet-name');
+    const planetDescriptionEl = document.getElementById('planet-description');
+    const planetRiddleEl = document.getElementById('planet-riddle');
+    const planetAdvantagesEl = document.getElementById('planet-advantages');
+    const planetDisadvantagesEl = document.getElementById('planet-disadvantages');
+    const nextLevelButton = document.getElementById('nextLevelButton');
+    const shareButton = document.getElementById('shareButton');
+    const distanceDisplay = document.getElementById('distance');
+    const debrisCountDisplay = document.getElementById('debris-count');
+    const lightYearsToGoDisplay = document.getElementById('light-years-to-go');
+    const gameOverScreen = document.getElementById('game-over');
+    const restartButton = document.getElementById('restartButton');
+    const congratulationsScreen = document.getElementById('congratulations');
+    const finalRestartButton = document.getElementById('finalRestartButton');
+    const finalMessageEl = document.getElementById('final-message');
+    const thrustButton = document.getElementById('thrustButton');
+    const messageBox = document.getElementById('message-box');
+
+    // Game variables
+    let gameStarted = false;
+    let gameOver = false;
+    let isThrusting = false;
+    let isPaused = false;
+    let currentPlanetIndex = 0;
+    let debrisCount = 0;
+    let distance = 0;
+    let lastTime = 0;
+    const TOTAL_DISTANCE_PER_LEVEL = 20;
+
+    // Ship properties
+    const ship = {
+        x: GAME_WIDTH / 4,
+        y: GAME_HEIGHT / 2,
+        radius: 15,
+        velocity: 0,
+        gravity: 0.5,
+        lift: -8,
+        color: '🚀'
+    };
+    
+    // Star properties
+    let stars = [];
+    const NUM_STARS = 200;
+
+    // Asteroid properties
+    let asteroids = [];
+    let asteroidSpeed = 3;
+    let asteroidSpawnRate = 120; // Frames between new asteroids
+    
+    // Debris properties
+    let debris = [];
+    const DEBRIS_EMOJI = '🔩';
+    let debrisSpawnRate = 240; // Frames between new debris
+    let frames = 0;
+
+    let minGap = 150;
+    let maxGap = 250;
+
+    const planets = [
+        {
+            name: "Mercury",
+            emoji: "☄️",
+            info: "Mercury is the smallest planet in our solar system and the closest to the Sun. Its proximity to the Sun causes extreme temperature swings.",
+            riddle: "I have mountains but no air, a surface scarred by craters. I'm quick in my orbit, a speedy little brother. What am I?",
+            advantages: ["Short travel time from the Sun", "Abundant solar energy"],
+            disadvantages: ["Extreme temperature fluctuations", "No atmosphere to breathe", "High radiation"]
+        },
+        {
+            name: "Venus",
+            emoji: "🌋",
+            info: "Venus is Earth's 'sister planet' in size, but its thick, toxic atmosphere traps heat in a runaway greenhouse effect, making it the hottest planet.",
+            riddle: "I'm named after the goddess of love, but my atmosphere is a hot, acidic mess. I spin backward from all my peers. What am I?",
+            advantages: ["Similar size and gravity to Earth"],
+            disadvantages: ["Surface temperature of 465°C", "Atmosphere of carbon dioxide and sulfuric acid"]
+        },
+        {
+            name: "Earth",
+            emoji: "🌍",
+            info: "The third planet from the Sun and the only known astronomical object to harbor life. Its oceans of liquid water and breathable atmosphere make it unique.",
+            riddle: "I am the home you seek, blue and green, where life thrives and seasons preen. I have a single companion in my sky. What am I?",
+            advantages: ["Liquid water and breathable atmosphere", "Abundant flora and fauna", "Suitable temperatures"],
+            disadvantages: ["Prone to natural disasters", "Already heavily populated", "Slightly less challenging now"]
+        },
+        {
+            name: "Mars",
+            emoji: "🔴",
+            info: "Known as the Red Planet, Mars is a cold, desert world with polar ice caps and a thin atmosphere. It's the most explored planet after Earth.",
+            riddle: "I am a rusty red traveler, a destination of dreams for many. My moons are tiny, my dust storms are grand. What am I?",
+            advantages: ["Presence of water ice", "Potential for terraforming", "Similar day/night cycle to Earth"],
+            disadvantages: ["Extremely cold temperatures", "Very thin, unbreathable atmosphere", "Frequent dust storms"]
+        },
+        {
+            name: "Jupiter",
+            emoji: "🪐",
+            info: "Jupiter is a gas giant and the largest planet in our solar system. Its iconic Great Red Spot is a massive storm that has raged for centuries.",
+            riddle: "I am a king among my peers, a great red eye watches over me. I have many moons and no solid ground. What am I?",
+            advantages: ["Incredible size and power", "A great shield for the inner planets"],
+            disadvantages: ["No solid surface", "Intense radiation and magnetic fields", "Powerful, deadly storms"]
+        },
+        {
+            name: "Saturn",
+            emoji: "🪐",
+            info: "Known for its magnificent system of rings, Saturn is another gas giant. The rings are made of ice particles and rock, and it's the second-largest planet.",
+            riddle: "I am a celestial ring-bearer, a beautiful giant of gas. My rings are my crown, a sight to behold. What am I?",
+            advantages: ["Breathtaking views of the rings", "Many moons to explore"],
+            disadvantages: ["No solid surface", "Extremely strong winds and storms", "Very cold temperatures"]
+        },
+        {
+            name: "Uranus",
+            emoji: "🌀",
+            info: "Uranus is a unique ice giant that rotates on its side, a trait that gives it extreme seasons. It has a faint ring system and a core of rock and ice.",
+            riddle: "I'm a frosty blue giant, a peculiar dancer in the dark. I tumble through space on my side. What am I?",
+            advantages: ["Unique rotational axis could offer new perspectives"],
+            disadvantages: ["Tilted sideways on its axis", "Extremely cold", "Methane atmosphere"]
+        },
+        {
+            name: "Neptune",
+            emoji: "🌊",
+            info: "The farthest planet from the Sun, Neptune is a stormy, windy world. It's another ice giant with the fastest winds in the solar system.",
+            riddle: "I'm the farthest from our star, a deep blue giant with powerful gales. My great dark spot comes and goes. What am I?",
+            advantages: ["Serene and isolated"],
+            disadvantages: ["Farthest from the Sun", "Extremely cold temperatures", "Fastest winds in the solar system"]
+        }
+    ];
+
+    // Functions
+    function drawShip() {
+        ctx.font = `${ship.radius * 2}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(ship.color, ship.x, ship.y);
+    }
+    
+    function initStars() {
+        stars = [];
+        for (let i = 0; i < NUM_STARS; i++) {
+            stars.push({
+                x: Math.random() * GAME_WIDTH,
+                y: Math.random() * GAME_HEIGHT,
+                size: Math.random() * 2,
+                speed: Math.random() * 0.5 + 0.1
+            });
+        }
+    }
+    
+    function drawStars() {
+        ctx.fillStyle = '#fff';
+        stars.forEach(star => {
+            ctx.beginPath();
+            ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+            ctx.fill();
+        });
+    }
+    
+    function updateStars() {
+        stars.forEach(star => {
+            star.x -= star.speed;
+            if (star.x < 0) {
+                star.x = GAME_WIDTH;
+                star.y = Math.random() * GAME_HEIGHT;
+                star.size = Math.random() * 2;
+                star.speed = Math.random() * 0.5 + 0.1;
+            }
+        });
+    }
+
+    function updateShip() {
+        if (isThrusting) {
+            ship.velocity = ship.lift;
+        } else {
+            ship.velocity += ship.gravity;
+        }
+        
+        ship.y += ship.velocity;
+        
+        // Prevent ship from going off screen
+        if (ship.y + ship.radius > GAME_HEIGHT) {
+            ship.y = GAME_HEIGHT - ship.radius;
+            ship.velocity = 0;
+            endGame();
+        }
+        if (ship.y - ship.radius < 0) {
+            ship.y = ship.radius;
+            ship.velocity = 0;
+        }
+    }
+
+    function drawAsteroid(asteroid) {
+        ctx.fillStyle = '#f0f';
+        ctx.fillRect(asteroid.x, 0, asteroid.width, asteroid.topHeight);
+        ctx.fillRect(asteroid.x, asteroid.bottomY, asteroid.width, asteroid.bottomHeight);
+
+        // Draw emojis
+        ctx.font = '24px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('☄️', asteroid.x + asteroid.width / 2, asteroid.topHeight + 20);
+        ctx.fillText('☄️', asteroid.x + asteroid.width / 2, asteroid.bottomY - 20);
+    }
+
+    function updateAsteroids() {
+        for (let i = asteroids.length - 1; i >= 0; i--) {
+            asteroids[i].x -= asteroidSpeed;
+            if (asteroids[i].x + asteroids[i].width < 0) {
+                asteroids.splice(i, 1);
+            }
+        }
+    }
+
+    function createAsteroid() {
+        const gap = minGap + Math.random() * (maxGap - minGap);
+        const topHeight = Math.random() * (GAME_HEIGHT - gap - 100) + 50;
+        const bottomY = topHeight + gap;
+        const bottomHeight = GAME_HEIGHT - bottomY;
+
+        asteroids.push({
+            x: GAME_WIDTH,
+            width: 50,
+            topHeight: topHeight,
+            bottomY: bottomY,
+            bottomHeight: bottomHeight
+        });
+    }
+    
+    function drawDebris(d) {
+        ctx.font = '24px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(d.emoji, d.x, d.y);
+    }
+    
+    function updateDebris() {
+        for (let i = debris.length - 1; i >= 0; i--) {
+            debris[i].x -= asteroidSpeed * 1.5; // Debris moves faster
+            if (debris[i].x < 0) {
+                debris.splice(i, 1);
+            }
+        }
+    }
+
+    function createDebris() {
+        const y = Math.random() * (GAME_HEIGHT - 50) + 25;
+        debris.push({
+            x: GAME_WIDTH,
+            y: y,
+            radius: 12,
+            emoji: DEBRIS_EMOJI
+        });
+    }
+
+    function checkCollision() {
+        for (const asteroid of asteroids) {
+            if (ship.x + ship.radius > asteroid.x && ship.x - ship.radius < asteroid.x + asteroid.width) {
+                if (ship.y - ship.radius < asteroid.topHeight || ship.y + ship.radius > asteroid.bottomY) {
+                    endGame();
+                }
+            }
+        }
+    }
+    
+    function checkDebrisCollision() {
+        for (let i = debris.length - 1; i >= 0; i--) {
+            const d = debris[i];
+            const dx = ship.x - d.x;
+            const dy = ship.y - d.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            if (distance < ship.radius + d.radius) {
+                debrisCount++;
+                debris.splice(i, 1);
+                debrisCountDisplay.textContent = `Debris: ${debrisCount}`;
+            }
+        }
+    }
+    
+    function updateDifficulty() {
+        const difficultyFactor = currentPlanetIndex / (planets.length - 1);
+        asteroidSpeed = 2 + 4 * difficultyFactor; // Start at a slower speed of 2
+        minGap = 180 - 80 * difficultyFactor; // Start with a wider gap of 180
+        maxGap = 280 - 80 * difficultyFactor; // Start with a wider max gap of 280
+        asteroidSpawnRate = 160 - 60 * difficultyFactor; // Start with a slower spawn rate
+        if (asteroidSpawnRate < 60) asteroidSpawnRate = 60;
+    }
+    
+    function showMessage(text, duration = 2000) {
+        messageBox.textContent = text;
+        messageBox.style.display = 'block';
+        setTimeout(() => {
+            messageBox.style.display = 'none';
+        }, duration);
+    }
+
+    function startCountdown() {
+        isPaused = true;
+        let count = 5;
+        messageBox.textContent = count;
+        messageBox.style.display = 'block';
+        
+        const countdownInterval = setInterval(() => {
+            count--;
+            if (count > 0) {
+                messageBox.textContent = count;
+            } else {
+                clearInterval(countdownInterval);
+                messageBox.style.display = 'none';
+                isPaused = false;
+                startGame();
+            }
+        }, 1000);
+    }
+
+    function showLevelSelect() {
+        startScreen.style.display = 'none';
+        levelSelectModal.style.display = 'block';
+        levelSelectList.innerHTML = '';
+        planets.forEach((planet, index) => {
+            const li = document.createElement('li');
+            li.textContent = `${planet.name} ${planet.emoji}`;
+            li.dataset.index = index;
+            li.addEventListener('click', () => {
+                startLevel(index);
+            });
+            levelSelectList.appendChild(li);
+        });
+    }
+    
+    function startLevel(index) {
+        currentPlanetIndex = index;
+        levelSelectModal.style.display = 'none';
+        startCountdown();
+    }
+
+    function startGame() {
+        gameStarted = true;
+        gameOver = false;
+        startScreen.style.display = 'none';
+        gameOverScreen.style.display = 'none';
+        congratulationsScreen.style.display = 'none';
+        thrustButton.style.display = 'block';
+        
+        // Reset game state
+        ship.y = GAME_HEIGHT / 2;
+        ship.velocity = 0;
+        asteroids = [];
+        debris = [];
+        distance = 0;
+        frames = 0;
+        
+        initStars();
+        updateDifficulty();
+        requestAnimationFrame(animate);
+    }
+
+    function endLevel() {
+        gameStarted = false;
+        showPlanetInfo();
+        currentPlanetIndex++;
+    }
+
+    function endGame() {
+        isPaused = true;
+        gameOver = true;
+        gameStarted = false;
+        gameOverScreen.style.display = 'block';
+        thrustButton.style.display = 'none';
+    }
+
+    // Event listeners
+    startButton.addEventListener('click', () => startLevel(0));
+    climateChangeButton.addEventListener('click', () => {
+        startScreen.style.display = 'none';
+        climateChangeModal.style.display = 'block';
+    });
+    climateChangeCloseButton.addEventListener('click', () => {
+        climateChangeModal.style.display = 'none';
+        startScreen.style.display = 'block';
+    });
+    levelSelectButton.addEventListener('click', showLevelSelect);
+    levelSelectCloseButton.addEventListener('click', () => {
+        levelSelectModal.style.display = 'none';
+        startScreen.style.display = 'block';
+    });
+    restartButton.addEventListener('click', () => {
+        debrisCount = 0;
+        debrisCountDisplay.textContent = `Debris: ${debrisCount}`;
+        showLevelSelect();
+    });
+    finalRestartButton.addEventListener('click', () => {
+        debrisCount = 0;
+        debrisCountDisplay.textContent = `Debris: ${debrisCount}`;
+        showLevelSelect();
+    });
+
+    nextLevelButton.addEventListener('click', () => {
+        planetInfoModal.classList.remove('visible');
+        if (currentPlanetIndex < planets.length) {
+            startCountdown();
+        }
+    });
+
+    shareButton.addEventListener('click', () => {
+        const planet = planets[currentPlanetIndex - 1]; // -1 because index is already incremented
+        const shareText = `I just traveled to ${planet.name}! I passed through a difficult asteroid field and collected ${debrisCount} pieces of debris. Can you make it?`;
+        
+        const tempTextarea = document.createElement('textarea');
+        tempTextarea.value = shareText;
+        document.body.appendChild(tempTextarea);
+        tempTextarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(tempTextarea);
+        
+        showMessage('Copied to clipboard! Now you can paste your achievement anywhere.');
+    });
+    
+    // Thrust button functionality
+    thrustButton.addEventListener('mousedown', () => {
+        if (!isPaused && gameStarted) isThrusting = true;
+    });
+    thrustButton.addEventListener('mouseup', () => {
+        isThrusting = false;
+    });
+    thrustButton.addEventListener('mouseleave', () => {
+        isThrusting = false;
+    });
+    
+    // Touch support for mobile
+    thrustButton.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        if (!isPaused && gameStarted) isThrusting = true;
+    });
+    thrustButton.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        isThrusting = false;
+    });
+
+    // Initial call to start the animation loop
+    window.onload = function() {
+        startScreen.style.display = 'block';
+    };
+
+    function showPlanetInfo() {
+        isPaused = true;
+        const planet = planets[currentPlanetIndex];
+        
+        // Check for end of game
+        if (!planet) {
+            finalMessageEl.textContent = `You have successfully traveled to all planets and have collected ${debrisCount} pieces of debris to build your new home!`;
+            congratulationsScreen.style.display = 'block';
+            thrustButton.style.display = 'none';
+            return;
+        }
+
+        planetNameEl.textContent = `${planet.name} ${planet.emoji}`;
+        planetDescriptionEl.textContent = planet.info;
+        planetRiddleEl.textContent = `Riddle: ${planet.riddle}`;
+        
+        planetAdvantagesEl.innerHTML = '';
+        planet.advantages.forEach(adv => {
+            const li = document.createElement('li');
+            li.textContent = adv;
+            planetAdvantagesEl.appendChild(li);
+        });
+
+        planetDisadvantagesEl.innerHTML = '';
+        planet.disadvantages.forEach(dis => {
+            const li = document.createElement('li');
+            li.textContent = dis;
+            planetDisadvantagesEl.appendChild(li);
+        });
+        
+        planetInfoModal.classList.add('visible');
+        thrustButton.style.display = 'none';
+    }
+</script>
+
+</body>
+</html>
